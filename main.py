@@ -240,10 +240,10 @@ class GeoIPPlugin(Star):
                     logger.warning(f"geoip: ip9 返回非 200 状态码: {resp.status}")
                     return None
                 data = await resp.json()
-                # ip9 返回格式: {"code": 0, "data": {...}, "msg": "success"}
-                # code == 0 表示成功
-                if data.get("code") != 0:
-                    logger.warning(f"geoip: ip9 查询失败: code={data.get('code')}")
+                # ip9 返回格式: {"ret": 200, "data": {...}, "qt": 0}
+                # ret == 200 表示成功
+                if data.get("ret") != 200:
+                    logger.warning(f"geoip: ip9 查询失败: ret={data.get('ret')}")
                     return None
                 return data.get("data")
         except asyncio.TimeoutError:
@@ -289,42 +289,52 @@ class GeoIPPlugin(Star):
         Returns:
             格式化后的回复文本。
         """
-        is_cn: Optional[bool] = None  # None=无法判断, True=中国, False=海外
-        first_success: Optional[str] = None  # 记录哪个 API 先成功
+        """
+        国别判断逻辑（依据：用户需求规格）：
+        1. 两个 API 均需查询。
+        2. 当至少一个 API 判断为中国 IP 时视为中国 IP。
+        3. 当至少一个 API 判断为非中国 IP 时视为海外 IP。
+        4. 以第一个成功返回结果的 API 为准进行最终判断。
 
-        # ── 判断 ip-api 结果 ──
-        if result_ipapi is not None:
-            first_success = "ipapi"
+        结果组装规则：
+        - 中国 IP：使用 ip9 结果。
+        - 海外 IP：使用 ip-api 结果。
+        """
+        # ── 国别判断 ──
+        # 检查 ip-api: countryCode 大写 "CN" 表示中国
+        ipapi_is_cn = False
+        ipapi_is_known = False
+        if result_ipapi:
             cc = result_ipapi.get("countryCode") or ""
             if cc == "CN":
-                is_cn = True
+                ipapi_is_cn = True
+                ipapi_is_known = True
             elif cc:
-                is_cn = False
+                ipapi_is_known = True
 
-        # ── 判断 ip9 结果 ──
-        if result_ip9 is not None and first_success is None:
-            first_success = "ip9"
+        # 检查 ip9: country_code 小写 "cn" 表示中国
+        ip9_is_cn = False
+        ip9_is_known = False
+        if result_ip9:
             cc = (result_ip9.get("country_code") or "").lower()
             if cc == "cn":
-                is_cn = True
+                ip9_is_cn = True
+                ip9_is_known = True
             elif cc:
-                is_cn = False
+                ip9_is_known = True
 
-        # ── 如果 ip-api 先成功，但只有 ip9 有国别信息 ──
-        if result_ipapi is not None and result_ip9 is not None and is_cn is None:
-            # 两个都成功但没有国别信息，降级处理
-            pass
-
-        # ── 如果只有一个成功，用那个的结果 ──
-        if is_cn is None:
-            if result_ipapi is not None:
-                is_cn = False  # 默认非中国
-            elif result_ip9 is not None:
-                is_cn = True  # 默认中国
+        # 规则2: 至少一个 API 判断为 CN → 中国 IP
+        if ipapi_is_cn or ip9_is_cn:
+            is_cn = True
+        # 规则3: 至少一个知道国别且非 CN → 海外 IP（仅在无 API 说 CN 时）
+        elif ipapi_is_known or ip9_is_known:
+            is_cn = False
+        else:
+            is_cn = None
 
         # ── 组装结果 ──
         if is_cn is True and result_ip9 is not None:
-            # 中国 IP → ip9 数据
+            # 中国 IP → 使用 ip9 详细数据
             prov = result_ip9.get("prov") or ""
             city = result_ip9.get("city") or ""
             area = result_ip9.get("area") or ""
@@ -340,7 +350,7 @@ class GeoIPPlugin(Star):
             )
 
         if is_cn is False and result_ipapi is not None:
-            # 海外 IP → ip-api 数据
+            # 海外 IP → 使用 ip-api 详细数据
             country = result_ipapi.get("country") or ""
             region = result_ipapi.get("regionName") or ""
             city = result_ipapi.get("city") or ""
@@ -355,7 +365,7 @@ class GeoIPPlugin(Star):
                 f"运营商: {isp_str}"
             )
 
-        # ── 降级：任意一个可用结果 ──
+        # ── 降级：国别无法判断时，用任意可用数据 ──
         if result_ipapi is not None:
             country = result_ipapi.get("country") or ""
             region = result_ipapi.get("regionName") or ""
