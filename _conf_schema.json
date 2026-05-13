@@ -1,0 +1,26 @@
+{
+  "enable_private_ip_filter": {
+    "description": "过滤私有/保留 IP 地址",
+    "type": "bool",
+    "hint": "开启后将忽略 127.0.0.1、192.168.x.x 等私有地址及回环地址",
+    "default": true
+  },
+  "api_timeout": {
+    "description": "API 请求超时（秒）",
+    "type": "int",
+    "hint": "单个 API 调用的超时时间，建议 3-10 秒",
+    "default": 5
+  },
+  "enable_ipv6": {
+    "description": "启用 IPv6 查询",
+    "type": "bool",
+    "hint": "开启后支持识别和查询 IPv6 地址",
+    "default": true
+  },
+  "reply_format": {
+    "description": "自定义回复格式模板",
+    "type": "text",
+    "hint": "支持占位符：{ip}、{location}、{isp}。留空使用默认格式",
+    "default": ""
+  }
+}

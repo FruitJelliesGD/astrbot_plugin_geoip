@@ -1,0 +1,9 @@
+name: astrbot_plugin_geoip
+display_name: GeoIP 归属地查询
+desc: 自动检测聊天消息中的 IP 地址，通过 ip-api.com 和 ip9.com.cn 双 API 查询归属地，支持国内/海外智能区分和 UMO 平台启用控制。
+short_desc: IP 地址归属地自动查询插件。
+version: v1.0.0
+author: 果冻大神
+repo: https://github.com/FruitJelliesGD/astrbot_plugin_geoip
+support_platforms:
+  - aiocqhttp
