@@ -20,7 +20,7 @@ from typing import Optional, List
 
 import aiohttp
 
-from astrbot.api.event import filter, AstrMessageEvent, EventMessageType
+from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
 import astrbot.api.message_components as Comp
@@ -525,7 +525,7 @@ class GeoIPPlugin(Star):
     # 消息监听器：自动提取 IP 并查询归属地
     # ──────────────────────────────────────────
 
-    @filter.event_message_type(EventMessageType.ALL)
+    @filter.event_message_type(filter.EventMessageType.ALL)
     async def on_message(self, event: AstrMessageEvent):
         """
         监听所有消息事件，自动提取 IP 地址并查询归属地。
